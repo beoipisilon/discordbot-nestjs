@@ -10,7 +10,7 @@ export class FeedbackCommand implements Command {
     private readonly discordService: DiscordService,
   ) {}
 
-  async execute(message: Message): Promise<void> {
+  async execute(message: Message, args: string[]): Promise<void> {
     const embed = new EmbedBuilder()
       .setColor('#0099ff')
       .setTitle('📝 Sistema de Feedback')

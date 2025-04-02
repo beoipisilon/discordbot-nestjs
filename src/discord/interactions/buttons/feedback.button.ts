@@ -8,7 +8,21 @@ export class FeedbackButton implements IButtonInteraction {
   constructor(private readonly feedbackModal: FeedbackModal) {}
 
   async execute(interaction: ButtonInteraction): Promise<void> {
-    await interaction.showModal(this.feedbackModal.build());
+    try {
+      console.log('[Discord] Construindo modal de feedback...');
+      const modal = this.feedbackModal.build();
+      console.log('[Discord] Modal construído:', modal);
+      console.log('[Discord] Custom ID do modal:', modal.data.custom_id);
+      
+      await interaction.showModal(modal);
+      console.log('[Discord] Modal exibido com sucesso!');
+    } catch (error) {
+      console.error('[Discord] Erro ao mostrar modal de feedback:', error);
+      await interaction.reply({ 
+        content: 'Ocorreu um erro ao abrir o formulário de feedback. Por favor, tente novamente.',
+        ephemeral: true 
+      }).catch(console.error);
+    }
   }
 
   build(): ButtonBuilder {

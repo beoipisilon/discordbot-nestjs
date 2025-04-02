@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, OnModuleInit } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { DiscordModule } from './discord/discord.module';
@@ -14,4 +14,14 @@ import { LoggerModule } from './logger/logger.module';
     LoggerModule,
   ],
 })
-export class AppModule {} 
+export class AppModule implements OnModuleInit {
+  constructor() {}
+
+  async onModuleInit() {
+    // A ordem de inicialização é controlada pela ordem dos imports
+    // 1. ConfigModule (global)
+    // 2. MongooseModule (conexão com o banco)
+    // 3. DiscordModule (bot do Discord)
+    // 4. LoggerModule (sistema de logs)
+  }
+} 

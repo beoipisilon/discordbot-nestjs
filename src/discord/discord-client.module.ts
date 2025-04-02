@@ -1,18 +1,21 @@
-import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { Module, OnModuleInit } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { DiscordService } from './discord.service';
 
 @Module({
   imports: [ConfigModule],
-  providers: [
-    {
-      provide: DiscordService,
-      useFactory: (configService: ConfigService) => {
-        return new DiscordService(configService);
-      },
-      inject: [ConfigService],
-    },
-  ],
+  providers: [DiscordService],
   exports: [DiscordService],
 })
-export class DiscordClientModule {} 
+export class DiscordClientModule implements OnModuleInit {
+  constructor(private readonly discordService: DiscordService) {}
+
+  async onModuleInit() {
+    try {
+      await this.discordService.onModuleInit();
+    } catch (error) {
+      console.error('[DiscordClient] Erro ao inicializar o cliente Discord:', error);
+      throw error;
+    }
+  }
+} 
