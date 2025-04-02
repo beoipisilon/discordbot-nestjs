@@ -1,36 +1,71 @@
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { Command } from './interfaces/command.interface';
-import { Message, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { Message } from 'discord.js';
 import { DiscordService } from '../discord.service';
 
+@Injectable()
 export class FeedbackCommand implements Command {
   name = 'feedback';
-  description = 'Mostra um embed com botão para enviar feedback';
+  description = 'Envia feedback para os desenvolvedores';
+  usage = '!feedback <mensagem>';
 
   constructor(
+    @Inject(forwardRef(() => DiscordService))
     private readonly discordService: DiscordService,
-  ) {}
+  ) {
+    console.log('[FeedbackCommand] Comando criado');
+  }
+
+  async register() {
+    this.discordService.registerCommand(this);
+  }
 
   async execute(message: Message, args: string[]): Promise<void> {
-    const embed = new EmbedBuilder()
-      .setColor('#0099ff')
-      .setTitle('📝 Sistema de Feedback')
-      .setDescription('Clique no botão abaixo para enviar seu feedback!')
-      .addFields(
-        { name: 'Como funciona?', value: '1. Clique no botão "Enviar Feedback"\n2. Preencha o formulário\n3. Seu feedback será enviado!' },
-        { name: 'Importante', value: 'Seu feedback é muito importante para melhorarmos nossos serviços!' }
-      )
-      .setFooter({ text: 'Sistema de Feedback v1.0' })
-      .setTimestamp();
+    if (args.length === 0) {
+      await message.reply('Por favor, forneça uma mensagem de feedback. Exemplo: !feedback Este é meu feedback');
+      return;
+    }
 
-    const button = new ButtonBuilder()
-      .setCustomId('feedback_button')
-      .setLabel('Enviar Feedback')
-      .setStyle(ButtonStyle.Success)
-      .setEmoji('📝');
+    const feedback = args.join(' ');
+    const channelId = process.env.FEEDBACK_CHANNEL_ID;
 
-    const row = new ActionRowBuilder<ButtonBuilder>()
-      .addComponents(button);
+    if (!channelId) {
+      await message.reply('Erro: Canal de feedback não configurado');
+      return;
+    }
 
-    await message.reply({ embeds: [embed], components: [row] });
+    try {
+      const channel = await this.discordService.getClient().channels.fetch(channelId);
+      if (!channel || channel.type !== 0) { // 0 é o tipo para TextChannel
+        await message.reply('Erro: Canal de feedback não encontrado ou não é um canal de texto');
+        return;
+      }
+
+      await (channel as any).send({
+        embeds: [{
+          title: 'Novo Feedback',
+          description: feedback,
+          color: 0x00ff00,
+          fields: [
+            {
+              name: 'Autor',
+              value: `${message.author.tag} (${message.author.id})`,
+              inline: true,
+            },
+            {
+              name: 'Servidor',
+              value: message.guild?.name || 'DM',
+              inline: true,
+            },
+          ],
+          timestamp: new Date(),
+        }],
+      });
+
+      await message.reply('Feedback enviado com sucesso! Obrigado pela sua contribuição.');
+    } catch (error) {
+      console.error('[FeedbackCommand] Erro ao enviar feedback:', error);
+      await message.reply('Erro ao enviar feedback. Por favor, tente novamente mais tarde.');
+    }
   }
 } 

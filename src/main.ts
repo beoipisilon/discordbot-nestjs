@@ -1,49 +1,67 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DiscordModule } from './discord/discord.module';
-import { DiscordClientModule } from './discord/discord-client.module';
+import { DiscordCoreModule } from './discord/discord-core.module';
 import { CommandsModule } from './discord/commands/commands.module';
 import { EventsModule } from './discord/events/events.module';
 import { InteractionsModule } from './discord/interactions/interactions.module';
+import { Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
 async function bootstrap() {
-  try {
-    console.log('[Bootstrap] Iniciando aplicação...');
-    const app = await NestFactory.create(AppModule);
-    
-    // Inicializa todos os módulos
-    console.log('[Bootstrap] Obtendo instâncias dos módulos...');
-    const appModule = app.get(AppModule);
-    const discordModule = app.get(DiscordModule);
-    const discordClientModule = app.get(DiscordClientModule);
-    const commandsModule = app.get(CommandsModule);
-    const eventsModule = app.get(EventsModule);
-    const interactionsModule = app.get(InteractionsModule);
+  const logger = new Logger('Bootstrap');
+  logger.log('Iniciando aplicação...');
 
-    // Chama onModuleInit em todos os módulos na ordem correta
-    console.log('[Bootstrap] Inicializando módulos...');
-    
-    // Primeiro inicializa o módulo principal
-    await appModule.onModuleInit();
-    
-    // Depois inicializa o módulo do Discord
-    await discordModule.onModuleInit();
-    
-    // Em seguida inicializa o cliente do Discord
-    await discordClientModule.onModuleInit();
-    
-    // Por fim inicializa os módulos de funcionalidades
-    await commandsModule.onModuleInit();
-    await eventsModule.onModuleInit();
-    await interactionsModule.onModuleInit();
+  const app = await NestFactory.create(AppModule);
+  const configService = app.get(ConfigService);
 
-    console.log('[Bootstrap] Iniciando servidor HTTP...');
-    await app.listen(3000);
-    console.log('[Bootstrap] Aplicação iniciada com sucesso!');
-  } catch (error) {
-    console.error('[Bootstrap] ERRO: Falha ao iniciar a aplicação:', error);
-    process.exit(1);
-  }
+  // Configuração do CORS
+  app.enableCors({
+    origin: configService.get('FRONTEND_URL') || 'http://localhost:3000',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+    credentials: true,
+  });
+
+  // Configuração do Swagger
+  const swaggerConfig = {
+    title: 'API do Bot Discord',
+    description: 'API para gerenciamento do bot Discord',
+    version: '1.0',
+    tags: ['discord', 'bot', 'api'],
+  };
+
+  // Inicializa todos os módulos
+  logger.log('Obtendo instâncias dos módulos...');
+  const appModule = app.get(AppModule);
+  const discordModule = app.get(DiscordModule);
+  const discordCoreModule = app.get(DiscordCoreModule);
+  const commandsModule = app.get(CommandsModule);
+  const eventsModule = app.get(EventsModule);
+  const interactionsModule = app.get(InteractionsModule);
+
+  // Chama onModuleInit em todos os módulos na ordem correta
+  logger.log('Inicializando módulos...');
+  
+  // Primeiro inicializa o módulo principal
+  await appModule.onModuleInit();
+  
+  // Depois inicializa o módulo do Discord
+  await discordModule.onModuleInit();
+  
+  // Em seguida inicializa o cliente do Discord
+  await discordCoreModule.onModuleInit();
+  
+  // Por fim inicializa os módulos de funcionalidades
+  await commandsModule.onModuleInit();
+  await eventsModule.onModuleInit();
+
+  // Inicia o servidor
+  const port = configService.get('PORT') || 3000;
+  await app.listen(port);
+  logger.log(`Aplicação rodando na porta ${port}`);
 }
 
-bootstrap(); 
+bootstrap().catch((error) => {
+  console.error('Erro ao iniciar a aplicação:', error);
+  process.exit(1);
+}); 

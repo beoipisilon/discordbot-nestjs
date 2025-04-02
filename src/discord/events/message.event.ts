@@ -1,62 +1,61 @@
 import { Injectable } from '@nestjs/common';
-import { Message, ClientEvents } from 'discord.js';
 import { Event } from './interfaces/event.interface';
+import { Message } from 'discord.js';
 import { DiscordService } from '../discord.service';
 import { LoggerService } from '../../logger/logger.service';
 import { ConfigService } from '@nestjs/config';
+import { CommandHandler } from '../commands/command.handler';
 
 @Injectable()
 export class MessageEvent implements Event {
-  name: keyof ClientEvents = 'messageCreate';
+  name = 'messageCreate';
+  private prefix = '!';
 
   constructor(
-    private discordService: DiscordService,
-    private loggerService: LoggerService,
-    private configService: ConfigService,
+    private readonly discordService: DiscordService,
+    private readonly loggerService: LoggerService,
+    private readonly configService: ConfigService,
+    private readonly commandHandler: CommandHandler,
   ) {
-    console.log('[MessageEvent] Constructor called');
+    console.log('[MessageEvent] Evento criado');
   }
 
   async execute(message: Message): Promise<void> {
-    console.log('[MessageEvent] Execute called with message:', message.content);
-    
-    if (message.author.bot) {
-      console.log('[MessageEvent] Ignoring message from bot');
-      return;
-    }
-
-    const prefix = this.configService.get<string>('PREFIX');
-    console.log('[MessageEvent] Prefix:', prefix);
-    console.log('[MessageEvent] Message content:', message.content);
-
-    if (!message.content.startsWith(prefix)) {
-      console.log('[MessageEvent] Message does not start with prefix');
-      return;
-    }
-
-    const args = message.content.slice(prefix.length).trim().split(/ +/);
-    const commandName = args.shift()?.toLowerCase();
-    console.log('[MessageEvent] Command name:', commandName);
-    console.log('[MessageEvent] Available commands:', Array.from(this.discordService.commands.keys()));
-
-    if (!commandName) {
-      console.log('[MessageEvent] No command name found');
-      return;
-    }
-
-    const command = this.discordService.commands.get(commandName);
-    if (!command) {
-      console.log('[MessageEvent] Command not found:', commandName);
-      return;
-    }
-
     try {
-      console.log('[MessageEvent] Executing command:', commandName);
-      await command.execute(message, args);
-      console.log('[MessageEvent] Command executed successfully:', commandName);
+      // Ignora mensagens de bots
+      if (message.author.bot) {
+        console.log('[MessageEvent] Ignorando mensagem de bot');
+        return;
+      }
+
+      // Verifica se a mensagem começa com o prefixo
+      if (!message.content.startsWith(this.prefix)) {
+        console.log('[MessageEvent] Mensagem não começa com prefixo');
+        return;
+      }
+
+      // Extrai o comando e os argumentos
+      const args = message.content.slice(this.prefix.length).trim().split(/ +/);
+      const commandName = args.shift()?.toLowerCase();
+
+      if (!commandName) {
+        console.log('[MessageEvent] Nenhum comando encontrado');
+        return;
+      }
+
+      console.log('[MessageEvent] Processando mensagem:', message.content);
+      console.log('[MessageEvent] Comando encontrado:', commandName);
+      console.log('[MessageEvent] Argumentos:', args);
+
+      // Executa o comando usando o CommandHandler
+      await this.commandHandler.handleCommand(message);
     } catch (error) {
-      console.error('[MessageEvent] Error executing command:', error);
-      await message.reply('There was an error executing that command.');
+      console.error('[MessageEvent] Erro ao processar mensagem:', error);
+      try {
+        await message.reply('Ocorreu um erro ao executar o comando. Por favor, tente novamente.');
+      } catch (replyError) {
+        console.error('[MessageEvent] Erro ao enviar mensagem de erro:', replyError);
+      }
     }
   }
 } 

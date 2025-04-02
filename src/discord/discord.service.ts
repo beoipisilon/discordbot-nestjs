@@ -1,53 +1,29 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleInit, Inject, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Client, GatewayIntentBits, Collection, ButtonInteraction, ModalSubmitInteraction, Interaction } from 'discord.js';
+import { Client, GatewayIntentBits, Collection, Message, TextChannel, ChannelType, Events, Interaction } from 'discord.js';
+import { CommandHandler } from './commands/command.handler';
 import { Command } from './commands/interfaces/command.interface';
-import { Event } from './events/interfaces/event.interface';
 import { IButtonInteraction } from './interactions/interfaces/button.interface';
 import { ModalInteraction } from './interactions/interfaces/modal.interface';
+import { Event } from './events/interfaces/event.interface';
+import { PingButton } from './interactions/buttons/ping.button';
+import { FeedbackButton } from './interactions/buttons/feedback.button';
+import { FeedbackModal } from './interactions/modals/feedback.modal';
 
 @Injectable()
 export class DiscordService implements OnModuleInit {
   private client: Client;
-  public commands: Collection<string, Command>;
-  public events: Collection<string, Event>;
-  public buttons: Collection<string, IButtonInteraction>;
-  public modals: Collection<string, ModalInteraction>;
+  private commands: Collection<string, Command> = new Collection();
+  private buttons: Collection<string, IButtonInteraction> = new Collection();
+  private modals: Collection<string, ModalInteraction> = new Collection();
+  private events: Collection<string, Event> = new Collection();
 
-  constructor(private configService: ConfigService) {
-    console.log('[Discord] Inicializando serviço Discord...');
-    
-    this.commands = new Collection();
-    this.events = new Collection();
-    this.buttons = new Collection();
-    this.modals = new Collection();
-
-    const token = this.configService.get<string>('DISCORD_TOKEN');
-    if (!token) {
-      throw new Error('Token do Discord não encontrado nas variáveis de ambiente');
-    }
-
-    // Validação básica do token
-    const tokenRegex = /^[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*$/;
-    if (!tokenRegex.test(token)) {
-      throw new Error('Token do Discord inválido');
-    }
-
-    console.log('[Discord] Token encontrado e válido');
-
-    this.client = new Client({
-      intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent,
-        GatewayIntentBits.GuildMembers,
-      ],
-    });
-
-    this.setupEventHandlers();
-    
-    // Inicializa o cliente no construtor
-    this.initializeClient(token);
+  constructor(
+    private readonly configService: ConfigService,
+    @Inject(forwardRef(() => CommandHandler))
+    private readonly commandHandler: CommandHandler,
+  ) {
+    console.log('[Discord] Serviço criado');
   }
 
   private async initializeClient(token: string) {
@@ -71,7 +47,6 @@ export class DiscordService implements OnModuleInit {
         ready: this.client.isReady(),
         user: this.client.user?.tag,
         eventos: Array.from(this.events.keys()),
-        comandos: Array.from(this.commands.keys()),
         botoes: Array.from(this.buttons.keys()),
         modais: Array.from(this.modals.keys())
       });
@@ -97,6 +72,16 @@ export class DiscordService implements OnModuleInit {
     this.client.on('ready', () => {
       console.log('[Discord] Bot está online!');
       console.log('[Discord] Logado como:', this.client.user?.tag);
+    });
+
+    // Registra o handler de mensagens
+    this.client.on('messageCreate', async (message: Message) => {
+      console.log('[Discord] Mensagem recebida:', message.content);
+      try {
+        await this.commandHandler.handleCommand(message);
+      } catch (error) {
+        console.error('[Discord] Erro ao processar mensagem:', error);
+      }
     });
 
     this.client.on('interactionCreate', async (interaction: Interaction) => {
@@ -125,8 +110,45 @@ export class DiscordService implements OnModuleInit {
   }
 
   async onModuleInit() {
-    // Não faz nada aqui, pois a inicialização já foi feita no construtor
-    console.log('[Discord] onModuleInit chamado, mas a inicialização já foi feita no construtor');
+    try {
+      console.log('[Discord] Inicializando serviço...');
+      const token = this.configService.get<string>('DISCORD_TOKEN');
+      if (!token) {
+        throw new Error('Token do Discord não encontrado nas variáveis de ambiente');
+      }
+
+      // Inicializa o cliente Discord
+      this.client = new Client({
+        intents: [
+          GatewayIntentBits.Guilds,
+          GatewayIntentBits.GuildMessages,
+          GatewayIntentBits.MessageContent,
+          GatewayIntentBits.GuildMembers,
+        ],
+      });
+
+      // Configura os handlers de eventos
+      this.setupEventHandlers();
+
+      // Registra os botões e modais
+      const feedbackModal = new FeedbackModal();
+      const feedbackButton = new FeedbackButton(feedbackModal);
+      const pingButton = new PingButton();
+
+      console.log('[Discord] Registrando botões...');
+      this.registerButton(pingButton);
+      this.registerButton(feedbackButton);
+
+      console.log('[Discord] Registrando modais...');
+      this.registerModal(feedbackModal);
+
+      // Faz login no Discord
+      await this.initializeClient(token);
+      console.log('[Discord] Serviço inicializado com sucesso!');
+    } catch (error) {
+      console.error('[Discord] ERRO: Falha ao inicializar serviço:', error);
+      throw error;
+    }
   }
 
   getClient(): Client {
@@ -135,10 +157,12 @@ export class DiscordService implements OnModuleInit {
 
   registerButton(button: IButtonInteraction) {
     this.buttons.set(button.customId, button);
+    console.log('[Discord] Botão registrado:', button.customId);
   }
 
   registerModal(modal: ModalInteraction) {
     this.modals.set(modal.customId, modal);
+    console.log('[Discord] Modal registrado:', modal.customId);
   }
 
   registerEvent(event: Event) {
@@ -146,5 +170,10 @@ export class DiscordService implements OnModuleInit {
     this.client.on(event.name, (...args: any[]) => {
       event.execute(args[0]);
     });
+    console.log('[Discord] Evento registrado:', event.name);
+  }
+
+  registerCommand(command: Command) {
+    this.commandHandler.registerCommand(command);
   }
 } 

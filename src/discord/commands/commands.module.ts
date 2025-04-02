@@ -1,16 +1,19 @@
-import { Module, OnModuleInit } from '@nestjs/common';
-import { DiscordService } from '../discord.service';
-import { CommandHandler } from './command.handler';
+import { Module, OnModuleInit, forwardRef } from '@nestjs/common';
 import { FeedbackCommand } from './feedback.command';
+import { PingCommand } from './ping.command';
+import { CommandHandler } from './command.handler';
+import { DiscordCoreModule } from '../discord-core.module';
 
 @Module({
-  providers: [CommandHandler, FeedbackCommand],
+  imports: [forwardRef(() => DiscordCoreModule)],
+  providers: [CommandHandler, FeedbackCommand, PingCommand],
   exports: [CommandHandler],
 })
 export class CommandsModule implements OnModuleInit {
   constructor(
-    private readonly discordService: DiscordService,
     private readonly commandHandler: CommandHandler,
+    private readonly feedbackCommand: FeedbackCommand,
+    private readonly pingCommand: PingCommand,
   ) {
     console.log('[Commands] Construtor do módulo de comandos...');
   }
@@ -19,16 +22,10 @@ export class CommandsModule implements OnModuleInit {
     try {
       console.log('[Commands] Inicializando módulo de comandos...');
       
-      // Registra o handler de comandos no cliente Discord
-      const client = this.discordService.getClient();
-      client.on('messageCreate', async (message) => {
-        try {
-          await this.commandHandler.handleCommand(message);
-        } catch (error) {
-          console.error('[Commands] Erro ao processar comando:', error);
-        }
-      });
-
+      // Registra os comandos
+      await this.feedbackCommand.register();
+      await this.pingCommand.register();
+      
       console.log('[Commands] Módulo de comandos inicializado com sucesso!');
     } catch (error) {
       console.error('[Commands] ERRO: Falha ao inicializar módulo de comandos:', error);

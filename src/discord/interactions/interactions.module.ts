@@ -1,35 +1,20 @@
-import { Module, OnModuleInit } from '@nestjs/common';
-import { DiscordClientModule } from '../discord-client.module';
+import { Module, forwardRef } from '@nestjs/common';
+import { DiscordCoreModule } from '../discord-core.module';
+import { CommandsModule } from '../commands/commands.module';
 import { PingButton } from './buttons/ping.button';
 import { FeedbackButton } from './buttons/feedback.button';
 import { FeedbackModal } from './modals/feedback.modal';
-import { DiscordService } from '../discord.service';
 
 @Module({
-  imports: [DiscordClientModule],
-  providers: [PingButton, FeedbackButton, FeedbackModal, DiscordService],
+  imports: [
+    forwardRef(() => DiscordCoreModule),
+    forwardRef(() => CommandsModule),
+  ],
+  providers: [PingButton, FeedbackButton, FeedbackModal],
   exports: [PingButton, FeedbackButton, FeedbackModal],
 })
-export class InteractionsModule implements OnModuleInit {
-  constructor(private readonly discordService: DiscordService) {
-    console.log('[Interactions] Inicializando módulo de interações...');
-  }
-
-  onModuleInit() {
-    // Criar instâncias
-    const feedbackModal = new FeedbackModal();
-    const feedbackButton = new FeedbackButton(feedbackModal);
-    const pingButton = new PingButton();
-
-    // Registrar botões
-    console.log('[Interactions] Registrando botões...');
-    this.discordService.registerButton(pingButton);
-    this.discordService.registerButton(feedbackButton);
-
-    // Registrar modais
-    console.log('[Interactions] Registrando modais...');
-    this.discordService.registerModal(feedbackModal);
-
-    console.log('[Interactions] Módulo de interações inicializado com sucesso!');
+export class InteractionsModule {
+  constructor() {
+    console.log('[Interactions] Construtor do módulo de interações...');
   }
 } 
