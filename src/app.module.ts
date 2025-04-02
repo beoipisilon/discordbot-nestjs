@@ -15,13 +15,27 @@ import { LoggerModule } from './logger/logger.module';
   ],
 })
 export class AppModule implements OnModuleInit {
-  constructor() {}
+  constructor() {
+    console.log('[App] Módulo criado');
+  }
 
   async onModuleInit() {
-    // A ordem de inicialização é controlada pela ordem dos imports
-    // 1. ConfigModule (global)
-    // 2. MongooseModule (conexão com o banco)
-    // 3. DiscordModule (bot do Discord)
-    // 4. LoggerModule (sistema de logs)
+    try {
+      console.log('[App] Inicializando módulo principal...');
+      
+      // A ordem de inicialização é controlada pela ordem dos imports
+      // 1. ConfigModule (global)
+      // 2. MongooseModule (conexão com o banco)
+      // 3. DiscordModule (bot do Discord)
+      // 4. LoggerModule (sistema de logs)
+      
+      // Aguarda um momento para garantir que todos os módulos foram inicializados
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      console.log('[App] Módulo principal inicializado com sucesso!');
+    } catch (error) {
+      console.error('[App] ERRO: Falha ao inicializar o módulo principal:', error);
+      throw error;
+    }
   }
 } 

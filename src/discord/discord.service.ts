@@ -15,10 +15,25 @@ export class DiscordService implements OnModuleInit {
   public modals: Collection<string, ModalInteraction>;
 
   constructor(private configService: ConfigService) {
+    console.log('[Discord] Inicializando serviço Discord...');
+    
     this.commands = new Collection();
     this.events = new Collection();
     this.buttons = new Collection();
     this.modals = new Collection();
+
+    const token = this.configService.get<string>('DISCORD_TOKEN');
+    if (!token) {
+      throw new Error('Token do Discord não encontrado nas variáveis de ambiente');
+    }
+
+    // Validação básica do token
+    const tokenRegex = /^[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*$/;
+    if (!tokenRegex.test(token)) {
+      throw new Error('Token do Discord inválido');
+    }
+
+    console.log('[Discord] Token encontrado e válido');
 
     this.client = new Client({
       intents: [
@@ -30,6 +45,40 @@ export class DiscordService implements OnModuleInit {
     });
 
     this.setupEventHandlers();
+    
+    // Inicializa o cliente no construtor
+    this.initializeClient(token);
+  }
+
+  private async initializeClient(token: string) {
+    try {
+      console.log('[Discord] Tentando fazer login...');
+      await this.client.login(token);
+      console.log('[Discord] Login realizado com sucesso!');
+
+      // Aguarda o cliente estar pronto
+      if (!this.client.isReady()) {
+        console.log('[Discord] Aguardando cliente estar pronto...');
+        await new Promise<void>((resolve) => {
+          this.client.once('ready', () => {
+            console.log('[Discord] Cliente está pronto!');
+            resolve();
+          });
+        });
+      }
+
+      console.log('[Discord] Estado do cliente:', {
+        ready: this.client.isReady(),
+        user: this.client.user?.tag,
+        eventos: Array.from(this.events.keys()),
+        comandos: Array.from(this.commands.keys()),
+        botoes: Array.from(this.buttons.keys()),
+        modais: Array.from(this.modals.keys())
+      });
+    } catch (error) {
+      console.error('[Discord] ERRO: Falha ao conectar ao Discord:', error);
+      throw error;
+    }
   }
 
   private setupEventHandlers() {
@@ -76,39 +125,8 @@ export class DiscordService implements OnModuleInit {
   }
 
   async onModuleInit() {
-    try {
-      const token = this.configService.get<string>('DISCORD_TOKEN');
-      
-      if (!token) {
-        throw new Error('Token do Discord não encontrado nas variáveis de ambiente');
-      }
-
-      console.log('[Discord] Tentando fazer login...');
-      await this.client.login(token);
-      console.log('[Discord] Login realizado com sucesso!');
-
-      // Aguarda o cliente estar pronto
-      if (!this.client.isReady()) {
-        await new Promise<void>((resolve) => {
-          this.client.once('ready', () => {
-            console.log('[Discord] Cliente está pronto!');
-            resolve();
-          });
-        });
-      }
-
-      console.log('[Discord] Estado do cliente:', {
-        ready: this.client.isReady(),
-        user: this.client.user?.tag,
-        eventos: Array.from(this.events.keys()),
-        comandos: Array.from(this.commands.keys()),
-        botoes: Array.from(this.buttons.keys()),
-        modais: Array.from(this.modals.keys())
-      });
-    } catch (error) {
-      console.error('[Discord] ERRO: Falha ao conectar ao Discord:', error);
-      throw error;
-    }
+    // Não faz nada aqui, pois a inicialização já foi feita no construtor
+    console.log('[Discord] onModuleInit chamado, mas a inicialização já foi feita no construtor');
   }
 
   getClient(): Client {

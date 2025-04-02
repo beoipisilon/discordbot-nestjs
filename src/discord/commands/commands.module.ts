@@ -1,33 +1,38 @@
 import { Module, OnModuleInit } from '@nestjs/common';
 import { DiscordService } from '../discord.service';
-import { PingCommand } from './ping.command';
-import { DiscordClientModule } from '../discord-client.module';
+import { CommandHandler } from './command.handler';
 import { FeedbackCommand } from './feedback.command';
-import { ConfigModule } from '@nestjs/config';
 
 @Module({
-  imports: [DiscordClientModule, ConfigModule],
-  providers: [PingCommand, FeedbackCommand],
-  exports: [PingCommand, FeedbackCommand],
+  providers: [CommandHandler, FeedbackCommand],
+  exports: [CommandHandler],
 })
 export class CommandsModule implements OnModuleInit {
-  constructor(private readonly discordService: DiscordService) {
+  constructor(
+    private readonly discordService: DiscordService,
+    private readonly commandHandler: CommandHandler,
+  ) {
     console.log('[Commands] Construtor do módulo de comandos...');
   }
 
   async onModuleInit() {
-    console.log('[Commands] Inicializando módulo de comandos...');
+    try {
+      console.log('[Commands] Inicializando módulo de comandos...');
+      
+      // Registra o handler de comandos no cliente Discord
+      const client = this.discordService.getClient();
+      client.on('messageCreate', async (message) => {
+        try {
+          await this.commandHandler.handleCommand(message);
+        } catch (error) {
+          console.error('[Commands] Erro ao processar comando:', error);
+        }
+      });
 
-    // Criar instâncias
-    const pingCommand = new PingCommand(this.discordService);
-    const feedbackCommand = new FeedbackCommand(this.discordService);
-
-    // Registrar comandos
-    console.log('[Commands] Registrando comandos...');
-    this.discordService.commands.set(pingCommand.name, pingCommand);
-    this.discordService.commands.set(feedbackCommand.name, feedbackCommand);
-
-    console.log('[Commands] Comandos registrados:', Array.from(this.discordService.commands.keys()));
-    console.log('[Commands] Módulo de comandos inicializado com sucesso!');
+      console.log('[Commands] Módulo de comandos inicializado com sucesso!');
+    } catch (error) {
+      console.error('[Commands] ERRO: Falha ao inicializar módulo de comandos:', error);
+      throw error;
+    }
   }
 } 
