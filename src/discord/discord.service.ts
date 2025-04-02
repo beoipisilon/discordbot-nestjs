@@ -23,19 +23,6 @@ export class DiscordService implements OnModuleInit {
         console.error('\x1b[31m%s\x1b[0m', '[Discord] ERRO: Token do Discord não encontrado nas variáveis de ambiente');
         throw new Error('Token do Discord não encontrado nas variáveis de ambiente');
       }
-      
-      if (token === 'seu_token_aqui') {
-        console.error('\x1b[31m%s\x1b[0m', '[Discord] ERRO: Token do Discord não configurado!');
-        console.error('\x1b[33m%s\x1b[0m', '[Discord] Por favor, configure o token do seu bot no arquivo .env');
-        console.error('\x1b[33m%s\x1b[0m', '[Discord] Acesse https://discord.com/developers/applications para obter o token');
-        throw new Error('Token do Discord não configurado');
-      }
-
-      if (!token.startsWith('MT') && !token.startsWith('NT')) {
-        console.error('\x1b[31m%s\x1b[0m', '[Discord] ERRO: Token do Discord inválido!');
-        console.error('\x1b[33m%s\x1b[0m', '[Discord] O token deve começar com MT ou NT');
-        throw new Error('Token do Discord inválido');
-      }
 
       this.client = new Client({
         intents: [
